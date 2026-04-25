@@ -1,3 +1,4 @@
+from time import time
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -6,6 +7,7 @@ from database import SessionLocal
 from models import Event, Booking
 from .auth import get_current_user
 from utils.redis_lock import acquire_lock, release_lock
+import time
 
 router = APIRouter(prefix="/booking", tags=["booking"]) 
 
@@ -31,6 +33,7 @@ def book_seat(event_id: int, seats: int, db: db_dependency , user: user_dependen
 
     if not acquire_lock(lock_key):
         raise HTTPException(status_code=429, detail="Another booking in progress")
+    time.sleep(2)
 
     try:
         # lock row for update to avoid race conditions (Postgres supports FOR UPDATE)
@@ -81,7 +84,6 @@ def cancel_booking(
     if booking.user_id != user.get("id"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # ensure event exists before restoring seats
     event = db.query(Event).filter(Event.id == booking.event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Associated event not found")
