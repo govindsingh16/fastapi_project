@@ -1,3 +1,4 @@
+from time import time
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -5,6 +6,8 @@ from starlette import status
 from database import SessionLocal
 from models import Event, Booking
 from .auth import get_current_user
+from utils.redis_lock import acquire_lock, release_lock
+import time
 
 router = APIRouter(prefix="/booking", tags=["booking"]) 
 
@@ -26,32 +29,42 @@ def book_seat(event_id: int, seats: int, db: db_dependency , user: user_dependen
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
 
-    # lock row for update to avoid race conditions (Postgres supports FOR UPDATE)
-    event = db.query(Event).filter(Event.id == event_id).with_for_update().first()
+    lock_key = f"lock:event:{event_id}"
 
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+    if not acquire_lock(lock_key):
+        raise HTTPException(status_code=429, detail="Another booking in progress")
+    time.sleep(2)
 
-    if seats <= 0:
-        raise HTTPException(status_code=400, detail="Seats must be > 0")
+    try:
+        # lock row for update to avoid race conditions (Postgres supports FOR UPDATE)
+        event = db.query(Event).filter(Event.id == event_id).with_for_update().first()
 
-    if event.available_seats < seats:
-        raise HTTPException(status_code=400, detail="Not enough seats available")
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
 
-    event.available_seats -= seats
+        if seats <= 0:
+            raise HTTPException(status_code=400, detail="Seats must be > 0")
 
-    booking = Booking(
-        user_id=user.get("id"),
-        event_id=event_id,
-        seats_booked=seats
-    )
+        if event.available_seats < seats:
+            raise HTTPException(status_code=400, detail="Not enough seats available")
 
-    db.add(booking)
-    db.add(event)
-    db.commit()
-    db.refresh(booking)
+        event.available_seats -= seats
 
-    return {"message": "Booking successful", "booking_id": booking.id}
+        booking = Booking(
+            user_id=user.get("id"),
+            event_id=event_id,
+            seats_booked=seats
+        )
+
+        db.add(booking)
+        db.add(event)
+        db.commit()
+        db.refresh(booking)
+
+        return {"message": "Booking successful", "booking_id": booking.id}
+
+    finally:
+        release_lock(lock_key)
 
 
 @router.delete("/{booking_id}")
@@ -71,7 +84,6 @@ def cancel_booking(
     if booking.user_id != user.get("id"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # ensure event exists before restoring seats
     event = db.query(Event).filter(Event.id == booking.event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Associated event not found")
