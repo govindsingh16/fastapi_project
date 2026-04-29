@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from exception import CustomException, custom_exception_handler
+
 import models
 from database import engine
 from routers import events, booking, admin, users
@@ -7,6 +9,7 @@ import redis
 from config import settings
 
 app = FastAPI()
+app.add_exception_handler(CustomException, custom_exception_handler)
 
 
 models.Base.metadata.create_all(bind=engine)

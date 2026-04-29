@@ -1,8 +1,9 @@
 from typing import Annotated
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, Path
 from starlette import status
+from exception import CustomException
 from models import Event
 from database import SessionLocal
 from .auth import get_current_user
@@ -68,7 +69,7 @@ async def create_event(
     db: db_dependency
 ):
     if user is None:
-        raise HTTPException(status_code=401, detail='Authentication Failed')
+        raise CustomException('Authentication Failed', 401)
 
     event = Event(
         title=event_request.title,

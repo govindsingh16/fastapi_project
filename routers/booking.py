@@ -1,8 +1,9 @@
 from time import time
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from starlette import status
+from exception import CustomException
 from database import SessionLocal
 from models import Event, Booking
 from .auth import get_current_user
@@ -27,12 +28,12 @@ user_dependency = Annotated[dict, Depends(get_current_user)]
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def book_seat(event_id: int, seats: int, db: db_dependency , user: user_dependency):
     if user is None:
-        raise HTTPException(status_code=401, detail='Authentication Failed')
+        raise CustomException('Authentication Failed', 401)
 
     lock_key = f"lock:event:{event_id}"
 
     if not acquire_lock(lock_key):
-        raise HTTPException(status_code=429, detail="Another booking in progress")
+        raise CustomException("Another booking in progress", 429)
     time.sleep(2)
 
     try:
@@ -40,13 +41,13 @@ def book_seat(event_id: int, seats: int, db: db_dependency , user: user_dependen
         event = db.query(Event).filter(Event.id == event_id).with_for_update().first()
 
         if not event:
-            raise HTTPException(status_code=404, detail="Event not found")
+            raise CustomException("Event not found", 404)
 
         if seats <= 0:
-            raise HTTPException(status_code=400, detail="Seats must be > 0")
+            raise CustomException("Seats must be > 0", 400)
 
         if event.available_seats < seats:
-            raise HTTPException(status_code=400, detail="Not enough seats available")
+            raise CustomException("Not enough seats available", 400)
 
         event.available_seats -= seats
 
@@ -76,17 +77,17 @@ def cancel_booking(
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
 
     if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
+        raise CustomException("Booking not found", 404)
 
     if user is None:
-        raise HTTPException(status_code=401, detail='Authentication Failed')
+        raise CustomException('Authentication Failed', 401)
 
     if booking.user_id != user.get("id"):
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise CustomException("Not authorized", 403)
 
     event = db.query(Event).filter(Event.id == booking.event_id).first()
     if not event:
-        raise HTTPException(status_code=404, detail="Associated event not found")
+        raise CustomException("Associated event not found", 404)
 
     event.available_seats += booking.seats_booked
 

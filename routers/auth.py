@@ -1,9 +1,10 @@
 from datetime import timedelta, datetime, timezone
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette import status
+from exception import CustomException
 from database import SessionLocal
 from models import Users
 from passlib.context import CryptContext
@@ -78,12 +79,10 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
         user_id = payload.get('id')
         user_role = payload.get('role')
         if username is None or user_id is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail='Could not validate user.')
+            raise CustomException('Could not validate user.', 401)
         return {'username': username, 'id': user_id, 'user_role': user_role}
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail='Could not validate user.')
+        raise CustomException('Could not validate user.', 401)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -114,8 +113,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
                                  db: db_dependency):
     user = authenticate_user(form_data.username, form_data.password, db)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail='Could not validate user.')
+        raise CustomException('Could not validate user.', 401)
     token = create_access_token(user.username, user.id, user.role, timedelta(minutes=20))
 
     return {'access_token': token, 'token_type': 'bearer'}
