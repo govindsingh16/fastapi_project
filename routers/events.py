@@ -6,6 +6,7 @@ from starlette import status
 from models import Event
 from database import SessionLocal
 from .auth import get_current_user
+from fastapi import Query
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -28,20 +29,36 @@ class EventRequest(BaseModel):
     total_seats: int = Field(gt=0)
 
 
-@router.get("/", status_code=status.HTTP_200_OK)
+@router.get("/list", status_code=status.HTTP_200_OK)
 async def list_events(db: db_dependency):
     return db.query(Event).all()
 
 
-@router.get("/{event_id}", status_code=status.HTTP_200_OK)
-async def get_event(
+@router.get("/")
+def get_events(
     db: db_dependency,
-    event_id: int = Path(gt=0)
+    page: int = 1,
+    limit: int = 10,
+    search: str = "",
+    location: str = "",
+    sort: str = "created_at"
 ):
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if event is None:
-        raise HTTPException(status_code=404, detail="Event not found")
-    return event
+    query = db.query(Event)
+
+    if search:
+        query = query.filter(Event.title.ilike(f"%{search}%"))
+
+    if location:
+        query = query.filter(Event.location.ilike(f"%{location}%"))
+
+    if sort == "created_at":
+        query = query.order_by(Event.created_at.asc())
+
+    offset = (page - 1) * limit
+
+    events = query.offset(offset).limit(limit).all()
+
+    return events
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
