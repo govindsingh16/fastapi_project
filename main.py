@@ -4,6 +4,7 @@ from database import engine
 from routers import events, booking, admin, users
 from routers import auth
 import redis
+from config import settings
 
 app = FastAPI()
 
@@ -16,7 +17,11 @@ app.include_router(booking.router)
 app.include_router(admin.router)
 app.include_router(users.router)
 
-r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+r = redis.Redis(
+    host=settings.redis_host,
+    port=settings.redis_port,
+    decode_responses=settings.redis_decode_responses
+)
 
 @app.get("/redis-test")
 def redis_test():

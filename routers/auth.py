@@ -9,14 +9,18 @@ from models import Users
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
+from config import settings
 
 router = APIRouter(
     prefix='/auth',
     tags=['auth']
 )
 
-SECRET_KEY = '197b2c37c391bed93fe80344fe73b806947a65e36206e05a1a23c2fa12702fe3'
-ALGORITHM = 'HS256'
+if not settings.secret_key:
+    raise ValueError("SECRET_KEY is not configured. Add it to your .env file.")
+
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
 
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
