@@ -1,0 +1,6 @@
+2026-04-29 18:56:21,925 - INFO - User 2 booking event 1
+2026-04-29 18:56:45,049 - INFO - User 2 booking event 2
+2026-04-30 16:35:08,638 - INFO - User 2 booking event 2
+2026-04-30 16:48:39,044 - INFO - GET /docs status=200 time=0.44ms
+2026-04-30 16:48:39,163 - INFO - GET /openapi.json status=200 time=37.41ms
+2026-04-30 16:48:47,217 - INFO - GET /events/ status=200 time=23.8ms

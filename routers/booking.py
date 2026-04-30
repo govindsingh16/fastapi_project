@@ -8,8 +8,10 @@ from models import Event, Booking
 from .auth import get_current_user
 from utils.redis_lock import acquire_lock, release_lock
 import time
-
+from logger import logger
 router = APIRouter(prefix="/booking", tags=["booking"]) 
+
+
 
 
 def get_db():
@@ -34,6 +36,7 @@ def book_seat(event_id: int, seats: int, db: db_dependency , user: user_dependen
     if not acquire_lock(lock_key):
         raise HTTPException(status_code=429, detail="Another booking in progress")
     time.sleep(2)
+    logger.info(f"User {user.get('id')} booking event {event_id}")
 
     try:
         # lock row for update to avoid race conditions (Postgres supports FOR UPDATE)
