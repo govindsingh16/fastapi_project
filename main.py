@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-import models
 from database import engine
+from models import Base
 from routers import events, booking, admin, users
 from routers import auth
 import redis
@@ -12,7 +12,7 @@ from logger import logger
 app = FastAPI()
 
 
-models.Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
 app.include_router(events.router)
